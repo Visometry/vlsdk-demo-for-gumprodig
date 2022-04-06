@@ -2,6 +2,13 @@
 
 Demostrates how to use VisionLib for object detection in a multi-view setting, where each frame shows the object in an entirely random pose.
 
+## Prerequisites
+
+You will need the following software installed on your PC:
+- [Git](https://git-scm.com/download/win)
+- [CMake](https://cmake.org/download/)
+- [Visual Studio](https://visualstudio.microsoft.com/de/downloads/) (Community Edition should be sufficient)
+
 ## Setup
 
 ### Git
@@ -12,8 +19,9 @@ Clone the repository from GitHub with the following command:
 
 ### VisionLib
 
-Download and install the current distribution of the [VisionLib SDK](https://visionlib.com/develop/downloads/). 
+Download the current distribution of the [VisionLib Native SDK](https://visionlib.com/develop/downloads/).
 The minimum required version is 2.3.
+Extract the zipped content into the root folder of this repository. You should have two subfolders: vlSDK and LicenseTool.
 
 If you do not run the demo in Visual Studio's debugger, add vlSDK's `bin` directory to you system's `PATH` manually.
 
@@ -53,7 +61,7 @@ Then set "Where to build the binaries:" to a folder of your choice.
 Add an entry named `vlSDK_DIR`, set it to the filepath to the `cmake` subdirectory in your vlSDK directory.
 Alternatively add the entry `CMAKE_PREFIX_PATH` and set it to the filepath of your vlSDK directory.
 
-Add an entry named `OpenCV_DIR`, set it to the filepath to OpenCV's `build` directory.
+Add an entry named `OpenCV_DIR`, set it to the filepath to OpenCV's `build` directory, where its cmake configuration file (`OpenCVConfig.cmake`) is located.
 
 Click "Generate"
 
