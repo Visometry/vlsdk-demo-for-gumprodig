@@ -31,13 +31,13 @@ IF (MSVC_IDE)
     get_filename_component(VL_BINARY_DIR ${vlSDK_DLL} DIRECTORY)
     message("Assuming vlSDK binaries are located at: ${VL_BINARY_DIR}")
 
-    get_filename_component(OCV_BINARY_DIR ${OpenCV_DIR}${OpenCV_ARCH} DIRECTORY)
-    set(OCV_BINARY_DIR ${OCV_BINARY_DIR}/bin)
+    get_target_property(OpenCV_DLL opencv_world IMPORTED_LOCATION_RELEASE)
+    get_filename_component(OpenCV_BINARY_DIR ${OpenCV_DLL} DIRECTORY)
     message("Assuming OpenCV binaries are located at: ${OCV_BINARY_DIR}")
 
   # Allows relative path's to work in Visual Studio
   set_target_properties(${MAIN_TARGET} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-  set_target_properties(${MAIN_TARGET} PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${VL_BINARY_DIR};${OCV_BINARY_DIR};%PATH%")
+  set_target_properties(${MAIN_TARGET} PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${VL_BINARY_DIR};${OpenCV_BINARY_DIR};%PATH%")
   set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${MAIN_TARGET})
 ELSE ()
   message("Generator is not Visual Studio. Add bin directories to the PATH of your system or IDE manually")
