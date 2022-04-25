@@ -27,9 +27,9 @@ target_compile_features(${MAIN_TARGET} PRIVATE cxx_std_17)
 
 # For convenience. Adds the directories with visionLib and OpenCV DLLs to the PATH variable in Visual Studio's Debugger Environment.
 IF (MSVC_IDE)
-    get_filename_component(VL_ROOT ${vlSDK_DIR} DIRECTORY)
-    set(VL_BINARY_DIRS "${VL_ROOT}/x86_64/bin;${VL_ROOT}/x86/bin")
-    message("Assuming vlSDK binaries are located at: ${VL_BINARY_DIRS}")
+    get_target_property(vlSDK_DLL vlSDK::vlSDK IMPORTED_LOCATION_RELEASE)
+    get_filename_component(VL_BINARY_DIR ${vlSDK_DLL} DIRECTORY)
+    message("Assuming vlSDK binaries are located at: ${VL_BINARY_DIR}")
 
     get_filename_component(OCV_BINARY_DIR ${OpenCV_DIR}${OpenCV_ARCH} DIRECTORY)
     set(OCV_BINARY_DIR ${OCV_BINARY_DIR}/bin)
@@ -37,8 +37,8 @@ IF (MSVC_IDE)
 
   # Allows relative path's to work in Visual Studio
   set_target_properties(${MAIN_TARGET} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
-  set_target_properties(${MAIN_TARGET} PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${VL_BINARY_DIRS};${OCV_BINARY_DIR};%PATH%")
-  set_target_properties(${MAIN_TARGET} PROPERTIES VS_STARTUP_PROJECT ${MAIN_TARGET})
+  set_target_properties(${MAIN_TARGET} PROPERTIES VS_DEBUGGER_ENVIRONMENT "PATH=${VL_BINARY_DIR};${OCV_BINARY_DIR};%PATH%")
+  set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${MAIN_TARGET})
 ELSE ()
   message("Generator is not Visual Studio. Add bin directories to the PATH of your system or IDE manually")
 ENDIF()
