@@ -12,7 +12,8 @@
 constexpr int frameCount = 2;
 
 constexpr auto licenseFilepath = "Resources/license.xml";
-constexpr auto trackingConfigFilepath = "Resources/bosch_injected.vl";
+const std::string testDataPath = "Resources/BoschWinkel";
+const std::string trackingConfigFilepath = testDataPath + "/trackingConfig.vl";
 
 constexpr auto visualizeResults = true;
 
@@ -21,7 +22,8 @@ using Frame = std::vector<cv::Mat>;
 Frame loadFrame(const size_t frameIdx)
 {
     Frame images;
-    if (!cv::imreadmulti("Resources/multiViewImage_" + std::to_string(frameIdx) + ".tif", images))
+    if (!cv::imreadmulti(
+            testDataPath + "/multiViewImage_" + std::to_string(frameIdx) + ".tif", images))
     {
         throw std::runtime_error("Unable to load multipage image");
     }
