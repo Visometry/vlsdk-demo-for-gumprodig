@@ -12,7 +12,7 @@
 constexpr int frameCount = 2;
 
 constexpr auto licenseFilepath = "Resources/license.xml";
-const std::string testDataPath = "Resources/BoschWinkel";
+const std::string testDataPath = "Resources/Stopfen";
 const std::string trackingConfigFilepath = testDataPath + "/trackingConfig.vl";
 
 constexpr auto visualizeResults = true;
