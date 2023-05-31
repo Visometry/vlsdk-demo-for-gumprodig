@@ -65,7 +65,7 @@
             "laplaceThreshold" : 5.0,
             "normalThreshold": 1000.0,
             "lineGradientThreshold": 15,
-            "lineSearchLengthTracking": 100,
+            "lineSearchLengthTrackingRelative": 0.04,
             "minNumOfCorrespondences": 50,
             "autoInit": {
                 "laplaceThreshold" : 5.0,
@@ -73,9 +73,9 @@
                 "maxScaleRatio" : 0.0,
                 "scale" : "m",
                 "scaleLevels" : 1,
-                "threshold" : 0.7,
-                "useAnalyzer" : true
+                "threshold" : 0.7
             },
+            "perCameraPreRefinement": true,
             "minInitQuality": 0.2,
             "minTrackingQuality": 0.2,
             "showLineModel": true,
