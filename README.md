@@ -25,6 +25,17 @@ Extract the zipped content into the root folder of this repository. You should h
 
 If you do not run the demo in Visual Studio's debugger, add vlSDK's `bin` directory to you system's `PATH` manually.
 
+<details><Summary> <i>Note for VisionLib Developers</i></Summary>
+
+You can also use your own locally-built binaries of the VisionLib Native SDK for this demo. To this end:
+- build the target `INSTALL` of the vlSDK project
+- in CMAKE (of this demo), set the variable `vlSDK_DIR` to the `cmake` subdirectory of your self-built and installed vlSDK
+
+In Visual Studio the Debugging-Environment will then automatically contain a path variable that points to the directory with the binaries of your `INSTALL`-ed vlSDK. This works for `Release`, `RelWithDebInfo`, and `Debug`configurations.
+
+</details>
+
+
 ### OpenCV
 
 Download and install [OpenCV](https://opencv.org/releases/) 
@@ -36,6 +47,12 @@ If you do not run the demo in Visual Studio's debugger, add OpenCV's `bin` direc
 To build and run the demo, a valid [license](https://docs.visionlib.com/v2.2.0/licensing.html) is required.
 
 The program will look for it under `Resources/license.xml` by default.
+
+<details><Summary> <i>Note for VisionLib Developers</i></Summary>
+
+You can also use the `**TESTING**`-alias for `licenseFilepath` in `Source/TrackingDemoMain.cpp` as long as you are in Visometry's VPN. 
+
+</details>
 
 ### Relative filepaths
 
@@ -64,6 +81,13 @@ Alternatively add the entry `CMAKE_PREFIX_PATH` and set it to the filepath of yo
 Add an entry named `OpenCV_DIR`, set it to the filepath to OpenCV's `build` directory, where its cmake configuration file (`OpenCVConfig.cmake`) is located.
 
 Click "Generate"
+
+<details><Summary> <i>Note for VisionLib Developers</i></Summary>
+
+If you have built the vlSDK from the repository, make sure that the `vlSDK_DIR` variable points to the `cmake`-subdirectory of your `INSTALL`-ed vlSDK. (see above)
+
+</details>
+
 
 
 ## Tracking configuration
