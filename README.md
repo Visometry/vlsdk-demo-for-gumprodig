@@ -46,24 +46,7 @@ If you do not run the demo in Visual Studio's debugger, add OpenCV's `bin` direc
 
 To build and run the demo, a valid [license](https://docs.visionlib.com/v2.2.0/licensing.html) is required.
 
-The program will look for it under `Resources/license.xml` by default.
-
-<details><Summary> <i>Note for VisionLib Developers</i></Summary>
-
-You can also use the `**TESTING**`-alias for `licenseFilepath` in `Source/TrackingDemoMain.cpp` as long as you are in Visometry's VPN. 
-
-</details>
-
-### Relative filepaths
-
-If you do not run the demo in Visual Studio's debugger, you may have to change 
-
-- `"project-dir:Rexroth-3_842_523_558_m.obj"` in `Resources/bosch_injected.vl`
-- `licenseFilepath` in `Source/TrackingDemoMain.cpp`
-- `trackingConfigFilepath` in `Source/TrackingDemoMain.cpp`
-- `imageDirectory` in `Source/Helpers/ImageHelpers.cpp`
-
-to absolute filepaths.
+The default location is `Resources/license.xml`.
 
 ### CMake
 
@@ -80,15 +63,23 @@ Alternatively add the entry `CMAKE_PREFIX_PATH` and set it to the filepath of yo
 
 Add an entry named `OpenCV_DIR`, set it to the filepath to OpenCV's `build` directory, where its cmake configuration file (`OpenCVConfig.cmake`) is located.
 
+If you use Visual Studio as Generator (IDE), you can set or modify the default paths in cmake for the license, vl-file, and the test images directory (`VSRUNTIME_VLLICENSEPATH`, `DEFINED VSRUNTIME_VLFILE`,  `VSRUNTIME_IMAGEDIR`). This will add them as command argument is Visual Studio's Debugging Environment for convenience.
+
 Click "Generate"
 
 <details><Summary> <i>Note for VisionLib Developers</i></Summary>
 
 If you have built the vlSDK from the repository, make sure that the `vlSDK_DIR` variable points to the `cmake`-subdirectory of your `INSTALL`-ed vlSDK. (see above)
 
+You can also use the `**TESTING**`-alias for `VSRUNTIME_VLLICENSEPATH` instead of a file path as long as you are in Visometry's VPN. 
+
 </details>
 
+### Build and Run
 
+Build and Run `TrackingDemoMain`. Running requires three command arguments: vl-file path, image sequence directory, and licence file path.
+
+When running in VS-IDE those command arguments are set via cmake. Modify them either in cmake or in the project-settings of `TrackingDemoMain`.
 
 ## Tracking configuration
 
