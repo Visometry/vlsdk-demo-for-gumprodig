@@ -11,17 +11,14 @@
 
 constexpr int frameCount = 2;
 
-constexpr auto licenseFilepath = "Resources/license.xml";
-constexpr auto trackingConfigFilepath = "Resources/bosch_injected.vl";
-
 constexpr auto visualizeResults = true;
 
 using Frame = std::vector<cv::Mat>;
 
-Frame loadFrame(const size_t frameIdx)
+Frame loadFrame(const std::string imageDir, const size_t frameIdx)
 {
     Frame images;
-    if (!cv::imreadmulti("Resources/multiViewImage_" + std::to_string(frameIdx) + ".tif", images))
+    if (!cv::imreadmulti(imageDir + "/multiViewImage_" + std::to_string(frameIdx) + ".tif", images))
     {
         throw std::runtime_error("Unable to load multipage image");
     }
@@ -38,8 +35,18 @@ Frame loadFrame(const size_t frameIdx)
 //    system. There is typically one camera (in our example camera_0) which is at the origin of the
 //    camera coordinate system and is not rotated
 
-int main()
+int main(int argc, char* argv[])
 {
+    // Load arguments
+    if (argc < 4)
+    {
+        std::cout << "Usage: TrackingDemoMain <vl-file> <image-sequence-dir> <license-file>\n";
+        return EXIT_FAILURE;
+    }
+    const std::string trackingConfigFilepath = argv[1];
+    const std::string imageDir = argv[2];
+    const std::string licenseFilepath = argv[3];
+
     try
     {
         std::cout << "Creating detector...\n\n";
@@ -48,7 +55,7 @@ int main()
         for (size_t frameIdx = 0; frameIdx < frameCount; frameIdx++)
         {
             std::cout << "Loading Frame " << frameIdx << "...\n";
-            const auto frame = loadFrame(frameIdx);
+            const auto frame = loadFrame(imageDir, frameIdx);
 
             std::cout << "Detecting...\n";
             const auto extrinsic = detector.runDetection(frame);

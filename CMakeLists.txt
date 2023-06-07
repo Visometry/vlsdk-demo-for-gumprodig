@@ -1,5 +1,28 @@
 cmake_minimum_required(VERSION 3.13)
 
+function(chooseAvailableImportedLocation targetName binaryFileLocation_Out)
+  set(configs RELEASE RELWITHDEBINFO DEBUG)
+  foreach (config ${configs})
+    get_target_property(binaryFileLocation ${targetName} IMPORTED_LOCATION_${config})
+    if(binaryFileLocation)
+      message(STATUS "Found binary for ${targetName} in ${config} configuration")
+      SET(${binaryFileLocation_Out} ${binaryFileLocation} PARENT_SCOPE)
+      return()
+    endif()
+  endforeach()
+endfunction()
+
+function(getImportedLocationDir targetName binaryDirectory_Out)
+  chooseAvailableImportedLocation(${targetName} binaryFileLocation)
+  if(binaryFileLocation)
+    get_filename_component(binaryDirectory ${binaryFileLocation} DIRECTORY)
+  else()
+    message(WARNING "No binaries found for ${targetName}. Set path manually!")
+  endif()
+  SET(${binaryDirectory_Out} ${binaryDirectory} PARENT_SCOPE)
+endfunction()
+
+
 project(
   vlsdk_demo_for_gumprodig
   DESCRIPTION
@@ -26,15 +49,24 @@ target_link_libraries(${MAIN_TARGET} ${OpenCV_LIBS} vlSDK::vlSDK nlohmann_json)
 target_compile_features(${MAIN_TARGET} PRIVATE cxx_std_17)
 
 # For convenience. Adds the directories with visionLib and OpenCV DLLs to the
-# PATH variable in Visual Studio's Debugger Environment.
+# PATH variable and sets command parameters in Visual Studio's Debugger Environment.
 if(MSVC_IDE)
-  get_target_property(vlSDK_DLL vlSDK::vlSDK IMPORTED_LOCATION_RELEASE)
-  get_filename_component(VL_BINARY_DIR ${vlSDK_DLL} DIRECTORY)
-  message("Assuming vlSDK binaries are located at: ${VL_BINARY_DIR}")
+  getImportedLocationDir(vlSDK::vlSDK VL_BINARY_DIR)
+  message(STATUS "Adding vlSDK binary directory ${VL_BINARY_DIR} to path variable in Debugger environment")
 
-  get_target_property(OpenCV_DLL opencv_world IMPORTED_LOCATION_RELEASE)
-  get_filename_component(OpenCV_BINARY_DIR ${OpenCV_DLL} DIRECTORY)
-  message("Assuming OpenCV binaries are located at: ${OCV_BINARY_DIR}")
+  getImportedLocationDir(opencv_core OpenCV_BINARY_DIR)
+  message(STATUS "Adding OpenCV binary directory ${OpenCV_BINARY_DIR} to path variable in Debugger environment")
+
+  if ((DEFINED VSRUNTIME_VLLICENSEPATH) AND (DEFINED VSRUNTIME_IMAGEDIR) AND (DEFINED VSRUNTIME_VLFILE))
+    message(STATUS "License file assumed to be in ${VSRUNTIME_VLLICENSEPATH}")
+    message(STATUS "Image sequence assumed to be in ${VSRUNTIME_IMAGEDIR}")
+    message(STATUS "vl-file assumed to be at ${VSRUNTIME_VLFILE}")
+  else()
+    set(VSRUNTIME_VLLICENSEPATH "${PROJECT_SOURCE_DIR}/Resources/license.xml" CACHE FILEPATH "Set path to VisionLib license file for VS Debugger")
+    set(VSRUNTIME_IMAGEDIR "${PROJECT_SOURCE_DIR}/Resources/Stopfen/" CACHE PATH "Set default directory containing test sequences")
+    set(VSRUNTIME_VLFILE "${PROJECT_SOURCE_DIR}/Resources/Stopfen/trackingConfig.vl" CACHE FILEPATH "Set default path to tracking configuration file")
+    message(WARNING " Set path to license (VSRUNTIME_VLLICENSEPATH), images (VSRUNTIME_IMAGEDIR), and vl-File (VSRUNTIME_VLFILE)")
+  endif()
 
   # Allows relative path's to work in Visual Studio
   set_target_properties(${MAIN_TARGET} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY
@@ -43,6 +75,11 @@ if(MSVC_IDE)
     ${MAIN_TARGET}
     PROPERTIES VS_DEBUGGER_ENVIRONMENT
                "PATH=${VL_BINARY_DIR};${OpenCV_BINARY_DIR};%PATH%")
+  set_target_properties(
+    ${MAIN_TARGET}
+    PROPERTIES VS_DEBUGGER_COMMAND_ARGUMENTS
+                "${VSRUNTIME_VLFILE} ${VSRUNTIME_IMAGEDIR} ${VSRUNTIME_VLLICENSEPATH}")
+                            
   set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT
                                                               ${MAIN_TARGET})
 else()
