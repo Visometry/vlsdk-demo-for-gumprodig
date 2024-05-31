@@ -39,7 +39,7 @@ std::string execute(const Worker& worker, const std::string& cmd)
     if (!vlWorker_ProcessJsonCommandSync(
             worker.get(),
             cmd.c_str(),
-            [](const const char* error, const char* data, void* clientData)
+            [](const char* error, const char* data, void* clientData)
             {
                 auto& result = *reinterpret_cast<StringPair*>(clientData);
                 result.first = error ? error : "";
