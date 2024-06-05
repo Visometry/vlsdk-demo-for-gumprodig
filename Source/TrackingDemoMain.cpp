@@ -1,4 +1,3 @@
-#include <Extrinsic.h>
 #include <Helpers/ImageHelpers.h>
 #include <MultiViewDetector.h>
 #include <Visualization/ResultVisualization.h>
@@ -31,9 +30,10 @@ Frame loadFrame(const std::string imageDir, const size_t frameIdx)
 //    q     : Rotation (Quaternion)
 //    valid : Tracking quality is sufficient
 //
-//    This is the euclidean transform from model/object coordinate system to camera coordinate
-//    system. There is typically one camera (in our example camera_0) which is at the origin of the
-//    camera coordinate system and is not rotated
+//    This is the euclidean transform from model/object coordinate system to world coordinate
+//    system. The world coordinate system is identical to the camera coordinate system unless
+//    tracking runs with SLAM. There is typically one camera (in our example camera_0) which is at
+//    the origin of the camera coordinate system and is not rotated.
 
 int main(int argc, char* argv[])
 {
@@ -60,7 +60,7 @@ int main(int argc, char* argv[])
             std::cout << "Detecting...\n";
             const auto extrinsic = detector.runDetection(frame);
 
-            std::cout << extrinsic.getDescription() << "\n\n";
+            std::cout << "World from model transform:\n" << extrinsic << "\n";
 
             if (visualizeResults)
             {

@@ -9,4 +9,5 @@ std::vector<cv::Mat> combineViews(
     const std::vector<cv::Mat>& lineModelImages);
 
 void showImagesInteractive(const std::vector<cv::Mat>& uncombinedViews, const std::string& title);
+void showImage(const cv::Mat& image, const std::string& title);
 } // namespace Visualization

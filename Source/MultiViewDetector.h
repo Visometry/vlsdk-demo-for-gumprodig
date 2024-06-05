@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Extrinsic.h>
+#include <Helpers/ExtrinsicDataHelpers.h>
 #include <Helpers/PointerHandler.h>
 
 #include <opencv2/core.hpp>
@@ -17,7 +17,7 @@ public:
         const std::string& licenseFilepath,
         const std::string& trackingConfigFilepath);
 
-    Extrinsic runDetection(const Frame& frame);
+    ExtrinsicDataHelpers::Extrinsic runDetection(const Frame& frame);
 
     Frame getLineModelImages() const;
 
@@ -27,6 +27,7 @@ private:
 
     Worker _worker;
     std::string _trackerName;
+    std::string _anchorName;
     std::string _inputName;
     unsigned int _cameraCount;
 };

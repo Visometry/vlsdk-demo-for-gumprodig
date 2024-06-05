@@ -42,8 +42,9 @@ target_include_directories(nlohmann_json INTERFACE ${JSON_DIR}/include)
 set(MAIN_TARGET "TrackingDemoMain")
 add_executable(
   ${MAIN_TARGET}
-  Source/TrackingDemoMain.cpp Source/MultiViewDetector.cpp Source/Extrinsic.cpp
-  Source/Helpers/ImageHelpers.cpp Source/Visualization/ResultVisualization.cpp)
+  Source/TrackingDemoMain.cpp Source/MultiViewDetector.cpp 
+  Source/Helpers/ExtrinsicDataHelpers.cpp Source/Helpers/ImageHelpers.cpp 
+  Source/Visualization/ResultVisualization.cpp)
 target_include_directories(${MAIN_TARGET} PRIVATE Source)
 target_link_libraries(${MAIN_TARGET} ${OpenCV_LIBS} vlSDK::vlSDK nlohmann_json)
 target_compile_features(${MAIN_TARGET} PRIVATE cxx_std_17)
