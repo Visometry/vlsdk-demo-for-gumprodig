@@ -2,7 +2,6 @@
 
 #include <Helpers/ImageHelpers.h>
 
-#include <nlohmann/json.hpp>
 #include <vlSDK.h>
 
 using namespace nlohmann;
@@ -29,6 +28,15 @@ std::string getResetHardCommand(const std::string& trackerName)
     json cmd;
     cmd["nodeName"] = trackerName;
     cmd["content"]["name"] = "resetHard";
+    return cmd.dump();
+}
+
+std::string setAttributeCommand(const std::string& attributeName, const std::string& value)
+{
+    json cmd;
+    cmd["name"] = "setAttribute";
+    cmd["param"]["att"] = attributeName;
+    cmd["param"]["val"] = value;
     return cmd.dump();
 }
 
@@ -93,7 +101,6 @@ Worker
     }
     return worker;
 }
-
 } // namespace
 
 MultiViewDetector::MultiViewDetector(
@@ -115,6 +122,20 @@ MultiViewDetector::MultiViewDetector(
     _inputName = configJson["input"]["useImageSource"].get<std::string>();
     _cameraCount =
         configJson["tracker"]["parameters"]["anchors"][0]["parameters"]["trackingCameras"].size();
+}
+
+void MultiViewDetector::enableTextureMapping(
+    const bool enabled,
+    std::optional<nlohmann::json> config)
+{
+    std::string enabledString = enabled ? "true" : "false";
+    execute(_worker, setAttributeCommand("textureMappingEnabled", enabledString));
+    _textureMappingEnabled = enabled;
+
+    if (config.has_value())
+    {
+        execute(_worker, setAttributeCommand("textureMappingConfig", config.value().dump()));
+    }
 }
 
 ExtrinsicDataHelpers::Extrinsic MultiViewDetector::runDetection(const Frame& frame)
@@ -140,6 +161,17 @@ Frame MultiViewDetector::getLineModelImages() const
         images.push_back(ImageHelpers::toCVMat(visImage));
     }
     return images;
+}
+
+cv::Mat MultiViewDetector::getTextureImage() const
+{
+    if (!_textureMappingEnabled)
+    {
+        throw std::runtime_error("Cannot run getTextureImage() with texture mapping disabled.");
+    }
+    Image visImage(vlWorker_GetNodeImageSync(
+        _worker.get(), _trackerName.c_str(), ("mappedTexture" + _anchorName).c_str()));
+    return ImageHelpers::toCVMat(visImage);
 }
 
 void MultiViewDetector::resetTracker()
