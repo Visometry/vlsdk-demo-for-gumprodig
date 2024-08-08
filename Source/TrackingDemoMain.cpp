@@ -8,7 +8,9 @@
 #include <vlSDK.h>
 
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <unordered_map>
 #include <vector>
 
 namespace
@@ -16,6 +18,9 @@ namespace
 constexpr int frameCount = 2;
 constexpr auto visualizeResults = true;
 constexpr auto extractTexture = true;
+constexpr auto useExternalTracking = true;
+constexpr auto extrinsicsKeyName = "imageFileName";
+constexpr int indentNumSpaces = 4;
 
 using Frame = std::vector<cv::Mat>;
 
@@ -56,18 +61,22 @@ struct TextureMappingConfig
     }
 };
 
-std::string composeImagePath(const std::string imageDir, const size_t frameIdx)
+std::string composeImageName(const size_t frameIdx)
 {
-    return imageDir + "/multiViewImage_" + std::to_string(frameIdx) + ".tif";
+    return "multiViewImage_" + std::to_string(frameIdx);
 }
 
-std::string composeTexturePath(const std::string imageDir, const size_t frameIdx)
+std::string composeImagePath(const std::string& imageDir, const size_t frameIdx)
 {
-    return imageDir + "/extracted_textures/texture_from_multiViewImage_" +
-           std::to_string(frameIdx) + ".png";
+    return imageDir + "/" + composeImageName(frameIdx) + ".tif";
 }
 
-Frame loadFrame(const std::string imageDir, const size_t frameIdx)
+std::string composeTexturePath(const std::string& imageDir, const size_t frameIdx)
+{
+    return imageDir + "/extracted_textures/texture_from_" + composeImageName(frameIdx) + ".png";
+}
+
+Frame loadFrame(const std::string& imageDir, const size_t frameIdx)
 {
     Frame images;
     if (!cv::imreadmulti(composeImagePath(imageDir, frameIdx), images))
@@ -81,6 +90,80 @@ void writeImage(const cv::Mat& cvImage, const std::string& path)
 {
     std::filesystem::create_directories(std::filesystem::path(path).parent_path());
     cv::imwrite(path, cvImage);
+}
+
+void writeExtrinsicsJson(
+    const std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic>& extrinsics,
+    const std::string& path)
+{
+    nlohmann::json results;
+
+    for (const auto& extrinsicKeyValue : extrinsics)
+    {
+        nlohmann::json extrinsicJson;
+        extrinsicJson[extrinsicsKeyName] = extrinsicKeyValue.first;
+        const auto& extrinsic = extrinsicKeyValue.second;
+        nlohmann::json t = nlohmann::json::array({extrinsic.t[0], extrinsic.t[1], extrinsic.t[2]});
+        extrinsicJson["t"] = t;
+        nlohmann::json q =
+            nlohmann::json::array({extrinsic.q[0], extrinsic.q[1], extrinsic.q[2], extrinsic.q[3]});
+        extrinsicJson["r"] = q;
+        results.push_back(extrinsicJson);
+    }
+
+    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
+    std::ofstream file(path);
+    file << results.dump(indentNumSpaces);
+}
+
+nlohmann::json readJsonFile(const std::string& configFilePath)
+{
+    std::ifstream ifs(configFilePath);
+    return nlohmann::json::parse(ifs);
+}
+
+std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic>
+    toHashMapOfExtrinsics(const nlohmann::json& json)
+{
+    if (!json.is_array())
+    {
+        throw std::runtime_error("json argument is not an array");
+    }
+
+    std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic> extrinsics;
+    for (const auto& elem : json)
+    {
+        const auto& key = (std::string)elem[extrinsicsKeyName];
+        extrinsics[key] = ExtrinsicDataHelpers::toExtrinsic(elem);
+    }
+    return extrinsics;
+}
+
+std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic>
+    loadTrackingResults(const std::optional<std::filesystem::path>& filePath)
+{
+    if (!filePath.has_value() || !std::filesystem::exists(filePath.value()) ||
+        filePath.value().extension() != ".json")
+    {
+        throw std::runtime_error(
+            "No JSON file with extrinsics found in the image sequence directory");
+    }
+
+    const auto& extrinsicsJson = readJsonFile(filePath.value().string());
+    return toHashMapOfExtrinsics(extrinsicsJson);
+}
+
+ExtrinsicDataHelpers::Extrinsic getTrackingResult(
+    const std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic>& extrinsics,
+    const std::string& imgFileName)
+{
+    if (extrinsics.find(imgFileName) == extrinsics.end())
+    {
+        std::cout << "No extrinsic found for image '" << imgFileName << "'" << std::endl;
+        return ExtrinsicDataHelpers::Extrinsic({{0, 0, 0}, {0, 0, 0, 1}, false});
+    }
+
+    return extrinsics.at(imgFileName);
 }
 } // namespace
 
@@ -112,10 +195,14 @@ int main(int argc, char* argv[])
         std::cout << "Creating detector...\n\n";
         MultiViewDetector detector(licenseFilepath, trackingConfigFilepath);
 
-        if (extractTexture)
+        detector.enableTextureMapping(
+            extractTexture, TextureMappingConfig().toJson()); // config is optional
+
+        std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic> extrinsics;
+        if (useExternalTracking)
         {
-            detector.enableTextureMapping(
-                true, TextureMappingConfig().toJson()); // config is optional
+            detector.disablePoseEstimation(useExternalTracking);
+            extrinsics = loadTrackingResults(imageDir + "/trackingResults.json");
         }
 
         for (size_t frameIdx = 0; frameIdx < frameCount; frameIdx++)
@@ -123,8 +210,18 @@ int main(int argc, char* argv[])
             std::cout << "Loading Frame " << frameIdx << "...\n";
             const auto frame = loadFrame(imageDir, frameIdx);
 
-            std::cout << "Detecting...\n";
-            const auto extrinsic = detector.runDetection(frame);
+            ExtrinsicDataHelpers::Extrinsic extrinsic;
+            if (!useExternalTracking)
+            {
+                std::cout << "Detecting...\n";
+                extrinsic = detector.runDetection(frame);
+            }
+            else
+            {
+                std::cout << "Running with external tracking...\n";
+                extrinsic = getTrackingResult(extrinsics, composeImageName(frameIdx));
+                detector.runWithExternalTracking(frame, extrinsic);
+            }
 
             std::cout << "World from model transform:\n" << extrinsic << "\n";
 
