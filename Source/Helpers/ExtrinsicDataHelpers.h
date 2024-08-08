@@ -1,5 +1,6 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
 #include <vlSDK.h>
 
 #include <array>
@@ -17,6 +18,7 @@ struct Extrinsic
 
 Extrinsic toExtrinsic(vlExtrinsicDataWrapper_t* extrinsicDataWrapper);
 Extrinsic toExtrinsic(vlSimilarityTransformWrapper_t* similarityTransformWrapper);
+Extrinsic toExtrinsic(const nlohmann::json& extrinsicJson);
 
 std::string to_string(const ExtrinsicDataHelpers::Extrinsic& ext);
 
