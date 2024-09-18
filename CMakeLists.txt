@@ -43,7 +43,9 @@ set(MAIN_TARGET "TrackingDemoMain")
 add_executable(
   ${MAIN_TARGET}
   Source/TrackingDemoMain.cpp Source/MultiViewDetector.cpp 
-  Source/Helpers/ExtrinsicDataHelpers.cpp Source/Helpers/ImageHelpers.cpp 
+  Source/Helpers/ExtrinsicDataHelpers.cpp 
+  Source/Helpers/DataProcessingHelpers.cpp 
+  Source/Helpers/ImageHelpers.cpp 
   Source/Visualization/ResultVisualization.cpp)
 target_include_directories(${MAIN_TARGET} PRIVATE Source)
 target_link_libraries(${MAIN_TARGET} ${OpenCV_LIBS} vlSDK::vlSDK nlohmann_json)

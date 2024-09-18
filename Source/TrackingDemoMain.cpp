@@ -1,3 +1,4 @@
+#include <Helpers/DataProcessingHelpers.h>
 #include <Helpers/ImageHelpers.h>
 #include <MultiViewDetector.h>
 #include <Visualization/ResultVisualization.h>
@@ -8,9 +9,7 @@
 #include <vlSDK.h>
 
 #include <filesystem>
-#include <fstream>
 #include <iostream>
-#include <unordered_map>
 #include <vector>
 
 namespace
@@ -19,8 +18,6 @@ constexpr int frameCount = 2;
 constexpr auto visualizeResults = true;
 constexpr auto extractTexture = true;
 constexpr auto useExternalTracking = true;
-constexpr auto extrinsicsKeyName = "imageFileName";
-constexpr int indentNumSpaces = 4;
 
 using Frame = std::vector<cv::Mat>;
 
@@ -76,87 +73,24 @@ std::string composeTexturePath(const std::string& imageDir, const size_t frameId
     return imageDir + "/extracted_textures/texture_from_" + composeImageName(frameIdx) + ".png";
 }
 
-Frame loadFrame(const std::string& imageDir, const size_t frameIdx)
+Frame getNextFrame(const std::string& imageDir, const size_t frameIdx)
 {
-    Frame images;
-    if (!cv::imreadmulti(composeImagePath(imageDir, frameIdx), images))
-    {
-        throw std::runtime_error("Unable to load multipage image");
-    }
-    return images;
+    return DataProcessingHelpers::loadFrame(composeImagePath(imageDir, frameIdx));
 }
 
-void writeImage(const cv::Mat& cvImage, const std::string& path)
+void writeTextureImage(const cv::Mat& cvImage, const std::string& imageDir, const size_t& frameIdx)
 {
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
-    cv::imwrite(path, cvImage);
+    std::string texturePath = composeTexturePath(imageDir, frameIdx);
+    DataProcessingHelpers::writeImage(cvImage, texturePath);
 }
 
-void writeExtrinsicsJson(
-    const std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic>& extrinsics,
-    const std::string& path)
-{
-    nlohmann::json results;
-
-    for (const auto& extrinsicKeyValue : extrinsics)
-    {
-        nlohmann::json extrinsicJson;
-        extrinsicJson[extrinsicsKeyName] = extrinsicKeyValue.first;
-        const auto& extrinsic = extrinsicKeyValue.second;
-        nlohmann::json t = nlohmann::json::array({extrinsic.t[0], extrinsic.t[1], extrinsic.t[2]});
-        extrinsicJson["t"] = t;
-        nlohmann::json q =
-            nlohmann::json::array({extrinsic.q[0], extrinsic.q[1], extrinsic.q[2], extrinsic.q[3]});
-        extrinsicJson["r"] = q;
-        results.push_back(extrinsicJson);
-    }
-
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
-    std::ofstream file(path);
-    file << results.dump(indentNumSpaces);
-}
-
-nlohmann::json readJsonFile(const std::string& configFilePath)
-{
-    std::ifstream ifs(configFilePath);
-    return nlohmann::json::parse(ifs);
-}
-
-std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic>
-    toHashMapOfExtrinsics(const nlohmann::json& json)
-{
-    if (!json.is_array())
-    {
-        throw std::runtime_error("json argument is not an array");
-    }
-
-    std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic> extrinsics;
-    for (const auto& elem : json)
-    {
-        const auto& key = (std::string)elem[extrinsicsKeyName];
-        extrinsics[key] = ExtrinsicDataHelpers::toExtrinsic(elem);
-    }
-    return extrinsics;
-}
-
-std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic>
-    loadTrackingResults(const std::optional<std::filesystem::path>& filePath)
-{
-    if (!filePath.has_value() || !std::filesystem::exists(filePath.value()) ||
-        filePath.value().extension() != ".json")
-    {
-        throw std::runtime_error(
-            "No JSON file with extrinsics found in the image sequence directory");
-    }
-
-    const auto& extrinsicsJson = readJsonFile(filePath.value().string());
-    return toHashMapOfExtrinsics(extrinsicsJson);
-}
-
+// Provided just for the demo, use your tracking algorithm instead.
 ExtrinsicDataHelpers::Extrinsic getTrackingResult(
     const std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic>& extrinsics,
-    const std::string& imgFileName)
+    const size_t& frameIdx)
 {
+    const auto imgFileName = composeImageName(frameIdx);
+
     if (extrinsics.find(imgFileName) == extrinsics.end())
     {
         std::cout << "No extrinsic found for image '" << imgFileName << "'" << std::endl;
@@ -202,13 +136,17 @@ int main(int argc, char* argv[])
         if (useExternalTracking)
         {
             detector.disablePoseEstimation(useExternalTracking);
-            extrinsics = loadTrackingResults(imageDir + "/trackingResults.json");
+            // extrinsics are loaded from the file to use the saved results as an example;
+            // loading tracking results is not needed if you use a real external tracking
+            // algorithm
+            extrinsics =
+                DataProcessingHelpers::loadTrackingResults(imageDir + "/trackingResults.json");
         }
 
         for (size_t frameIdx = 0; frameIdx < frameCount; frameIdx++)
         {
             std::cout << "Loading Frame " << frameIdx << "...\n";
-            const auto frame = loadFrame(imageDir, frameIdx);
+            const auto frame = getNextFrame(imageDir, frameIdx);
 
             ExtrinsicDataHelpers::Extrinsic extrinsic;
             if (!useExternalTracking)
@@ -219,7 +157,7 @@ int main(int argc, char* argv[])
             else
             {
                 std::cout << "Running with external tracking...\n";
-                extrinsic = getTrackingResult(extrinsics, composeImageName(frameIdx));
+                extrinsic = getTrackingResult(extrinsics, frameIdx);
                 detector.runWithExternalTracking(frame, extrinsic);
             }
 
@@ -228,10 +166,10 @@ int main(int argc, char* argv[])
             if (extractTexture)
             {
                 const auto& textureImage = detector.getTextureImage();
-                std::string texturePath = composeTexturePath(imageDir, frameIdx);
-                writeImage(textureImage, texturePath);
+                writeTextureImage(textureImage, imageDir, frameIdx);
 
-                std::cout << "Saved the extracted texture in " << texturePath << "\n\n";
+                std::cout << "Saved the extracted texture in "
+                          << composeTexturePath(imageDir, frameIdx) << "\n\n";
 
                 if (visualizeResults)
                 {
