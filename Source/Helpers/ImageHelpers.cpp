@@ -5,7 +5,7 @@
 
 #include <string>
 
-namespace Helpers
+namespace ImageHelpers
 {
 Image toVLImageGrey(const cv::Mat& imageGrey)
 {
@@ -61,4 +61,4 @@ cv::Mat toCVMat(const Image& vlImage)
     return imageBGR;
 }
 
-} // namespace Helpers
+} // namespace ImageHelpers

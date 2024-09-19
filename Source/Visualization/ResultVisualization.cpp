@@ -62,14 +62,7 @@ cv::Size getWindowSize(const cv::Size& imageSize)
     return {static_cast<int>(width), static_cast<int>(maxHeight)};
 }
 
-void showImage(const std::string& winName, const cv::Mat& image)
-{
-    auto screenSize = getWindowSize(image.size());
-    cv::Mat resizedImage;
-    cv::resize(image, resizedImage, screenSize);
 
-    cv::imshow(winName, resizedImage);
-}
 
 size_t getImageIndexInRasteredView(
     const unsigned int x,
@@ -100,7 +93,7 @@ void selectAndShowImage(int evt, int x, int y, int flags, void* userdata)
             getImageIndexInRasteredView(x, y, combinedViews.size(), rasteredViewSize);
         const auto winName =
             "Camera " + std::to_string(imageID) + " - Detailed View - Press any key to continue";
-        showImage(winName, combinedViews[imageID]);
+        Visualization::showImage(combinedViews[imageID], winName);
     }
 };
 } // namespace
@@ -129,7 +122,7 @@ void showImagesInteractive(const std::vector<cv::Mat>& combinedViews, const std:
 {
     const auto rasteredView = createRasteredView(combinedViews);
     auto winName = title + " - Click on image for detailed view - Press any key to continue";
-    showImage(winName, rasteredView);
+    showImage(rasteredView, winName);
 
     auto userdata = std::make_pair(std::cref(combinedViews), rasteredView.size());
     cv::setMouseCallback(winName, selectAndShowImage, reinterpret_cast<void*>(&userdata));
@@ -138,4 +131,12 @@ void showImagesInteractive(const std::vector<cv::Mat>& combinedViews, const std:
     cv::destroyAllWindows();
 }
 
+void showImage(const cv::Mat& image, const std::string& title)
+{
+    auto screenSize = getWindowSize(image.size());
+    cv::Mat resizedImage;
+    cv::resize(image, resizedImage, screenSize);
+
+    cv::imshow(title, resizedImage);
+}
 } // namespace Visualization

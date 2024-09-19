@@ -20,7 +20,7 @@ Clone the repository from GitHub with the following command:
 ### VisionLib
 
 Download the current distribution of the [VisionLib Native SDK](https://visionlib.com/develop/downloads/).
-The minimum required version is 2.3.
+The minimum required version is 3.2.0.
 Extract the zipped content into the root folder of this repository. You should have two subfolders: vlSDK and LicenseTool.
 
 If you do not run the demo in Visual Studio's debugger, add vlSDK's `bin` directory to you system's `PATH` manually.
@@ -90,22 +90,24 @@ Such a set of images - one by each camera - is called a frame.
 Given a frame, our goal is to find the relative position between the object and our cameras.
 We already know the camera intrisics and the relative positions between the cameras.
 
-In this demo we create a tracker suited for this task from the tracking configuration file `Resources/bosch_injected.vl`.
+In this demo we create a tracker suited for this task from the tracking configuration file `Resources/Stopfen/trackingConfig.vl`.
 
 <details><Summary> Here we explain the relevant components of the configuration in more detail. </Summary>
 <br></br>
 
 ### Object model
 
-A CAD model of the object. For details see https://docs.VisionLib.com/v2.2.0/vl_unity_s_d_k__preparing_models.html
+A CAD model of the object. For details see https://docs.visionlib.com/v3.2.0/#/Using_VisionLib/Tracking_Essentials/PreparingModels
 
-_In our example_: `Resources/Rexroth-3_842_523_558_m.obj`
+_In our example_: `Resources/Stopfen/UVMappedStopfen_m.obj`
 
 ### Tracker
 
-Specifies the type and the parameters of the tracking algorithm, the object model, the cameras to be used and the workspace.
+Specifies the type and the parameters of the tracking algorithm and the tracking anchor, which contains the object model, the cameras to be used, and the workspace.
 
-_In our example_: `"tracker"->"parameters"` in `Resources/bosch_injected.vl`
+_In our example_: `"tracker"->"parameters"` in `Resources/Stopfen/trackingConfig.vl`
+
+In a tracker of type multiModelTracker, it is possible to track multiple objects, with individual models defined in different tracking anchors, but in this example, we use only the first defined tracking anchor.
 
 Note that AutoInit is enabled, this tells the tracker to try and detect the object according to the workspace definition, if it has no prior information on the object's position.
 
@@ -113,7 +115,7 @@ Note that AutoInit is enabled, this tells the tracker to try and detect the obje
 
 Tells the tracking algorithm from which angles the camera's could potentially see the object. 
 
-_In our example_: `"tracker"->"parameters"->"workspaceDefinition"` in `Resources/bosch_injected.vl`
+_In our example_: `"tracker"->"parameters"->"anchors"->0->"workspaceDefinition"` in `Resources/Stopfen/trackingConfig.vl`
 
 The object orientation is entirely random so we have to take into account all angles (`"sphereThetaLength"=180, "spherePhiLength"=360`)
 
@@ -121,7 +123,7 @@ The object orientation is entirely random so we have to take into account all an
 Describes the source of the images in which we want to track the object, i.e. type of source and number of cameras. 
 It also contains the camera calibration data to be used.
 
-_In our example_: `"input"->"imageSources"` in `Resources/bosch_injected.vl`
+_In our example_: `"input"->"imageSources"` in `Resources/Stopfen/trackingConfig.vl`
 
 The input device we use is called `"device0"` and is of type `"injectMultiView"`.
 
@@ -132,22 +134,22 @@ We can set these images directly from any image we have loaded in main memory, e
 ### Camera calibration data
 Intrinsic camera parameters but also the relative positions of the cameras to each other.
 
-_In our example_: `"input"->"imageSources"->"data"->"cameras"` in `Resources/bosch_injected.vl`
+_In our example_: `"input"->"imageSources"->"data"->"cameras"` in `Resources/Stopfen/trackingConfig.vl`
 
-For all cameras `r` and `t` describe the rotation (as quaternion) and translation relative to the (multi-view) camera coordinate system. 
+For all cameras `q` and `t` describe the rotation (as quaternion) and translation relative to the (multi-view) camera coordinate system. 
 
 In our example this coordinate system was selected, so that the first camera is at its origin (`r=[0, 0, 0, 1]   t=[0, 0, 0]`), but this is not required in general.
 
-**Note:** Which cameras actually participate in the tracking is specified in `"tracker"->"parameters"->"trackingCameras"`. 
+**Note:** Which cameras actually participate in the tracking is specified in `"tracker"->"parameters"->"anchors"->0->"parameters"->"trackingCameras"`. 
 For example if `trackingCameras` were set to `[6, 2]` the tracker expects there will be two images in the input device: `"injectImage_0"` (captured by the 7th camera) and `"injectImage_1"` (captured by the 3rd camera).
 </details>
 
 ## Detection output
 
-The output we get from the tracker is a camera extrinsic. 
-It is the euclidean transformation to get from the model coordinate system to the camera coordinate system.
+The output we get from the tracker is an extrinsic. 
+It is the euclidean transformation to get from the model/anchor coordinate system to the world coordinate system.
 
-Combining this transformation with the extrinsics from the camera calibration gives the position of the object relative to each camera.
+Combining this transformation with the inverse extrinsic of world from camera transformation and then with the extrinsics from the camera calibration gives the position of the object relative to each camera.
 Using the camera intrinsics we can then calculate the position of the object in each image.
 
 ## Implementation with vlSDK
@@ -162,6 +164,10 @@ It's most important member is the `Worker` which contains all the nodes (tracker
 **Note:** We use a synchronous worker instance (created via `vlNew_SyncWorker`) for this demo.
 Commands executed by such a worker block the calling thread until completion. VisionLib also offers asynchronous workers (created via `vlNew_Worker`), which work with a different set of API calls.
 
+### Texture Mapping
+
+There is an option to extract the texture of the model to an image during tracking with texture mapping. To enable texture mapping, call `enableTextureMapping()` with `enabled` set to `true` after creating the `MultiViewDetector`. Optionally, you can set the `config` parameter for the texture mapping configuration in `enableTextureMapping()`. Texture mapping will be performed during tracking in `runDetection()`. After tracking, the extracted texture image can be retrieved by calling `getTextureImage()` and visualized and/or written to a file.
+
 ### runDetection()
 
 This consisits of three steps:
@@ -173,10 +179,10 @@ By resetting we tell the tracker to forget all information from previous frames 
 2. **Inject the frame** - 
 As described above, the `injectMultiView` device holds only one frame at a time.
 In this step we set it to the new frame, thus overriding the previous one.
-3. **Run tracking** - Detect the object in the frame that we injected in step 2.
-4. **Return extrinsic** - The class `Extrinsic` handles the API calls to retrieve `t`, `r` and `valid` and memory deallocation.
+3. **Run tracking** - Detect the object in the frame that we injected in step 2. Texture mapping is also performed in this step if it is enabled.
+4. **Return extrinsic** - The struct `Extrinsic` contains `t`, `q` and `valid` members, which can be accessed directly.
 
 ## Visualization
 
-This demo contains the option to visualize and inspect the detection output by drawing the detected model edges (returned by `getLineModelImages()`) over the actual image.
-Set the flag `visualizeResults` in `TrackingDemoMain.cpp` to turn it on/off. 
+This demo contains the option to visualize and inspect the detection output by drawing the detected model edges (returned by `getLineModelImages()`) over the actual image. Additionally, you can visualize the extracted texture (returned by `getTextureImage()`) if the `extractTexture` flag is turned on.
+Set the flag `visualizeResults` in `TrackingDemoMain.cpp` to turn the visualization on/off.

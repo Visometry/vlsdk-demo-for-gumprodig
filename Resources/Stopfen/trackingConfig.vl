@@ -1,80 +1,94 @@
 {
-  "$schema": "https://docs.visionlib.com/v3.1.0/vl.schema.json",
+  "$schema": "https://visionlib.com/documentation/vl.schema.json",
   "type": "VisionLibTrackerConfig",
   "version": 1,
   "tracker": {
-    "type": "modelTrackerMultiView",
+    "type": "multiModelTracker",
     "name": "tracker",
     "version": 1,
     "parameters": {
-      "synchronous": true,
-      "trackingCameras": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11
-      ],
-      "numberOfCameras": 12,
-      "models": [
+      "anchors": [
         {
-          "uri": "project-dir:UVMappedStopfen_m.obj"
-        }
-      ],
-      "workSpaceDefinition": {
-        "type": "VisionLibWorkSpacesConfig",
-        "version": 1,
-        "workSpaces": [
-          {
-            "type": "Simple",
-            "rollAngleRange": 170.0,
-            "rollAngleStep": 10.0,
-            "fieldOfView": 30.0,
-            "upVector": [
-              0.0,
-              1.0,
-              0.0
+          "name": "TrackedObject",
+          "models": [
+            {
+              "uri": "project-dir:UVMappedStopfen_m.obj"
+            }
+          ],
+          "workSpaceDefinition": {
+            "type": "VisionLibWorkSpacesConfig",
+            "version": 1,
+            "workSpaces": [
+              {
+                "type": "Simple",
+                "rollAngleRange": 170.0,
+                "rollAngleStep": 10.0,
+                "fieldOfView": 30.0,
+                "upVector": [
+                  0.0,
+                  1.0,
+                  0.0
+                ],
+                "origin": {
+                  "parameters": {
+                    "sphereThetaStart": 0.0,
+                    "sphereThetaLength": 180.0,
+                    "spherePhiStart": 0.0,
+                    "spherePhiLength": 360.0,
+                    "sphereSamples": 24
+                  }
+                },
+                "destination": {
+                  "parameters": {
+                    "modelURI": "project-dir:UVMappedStopfen_m.obj"
+                  }
+                }
+              }
+            ]
+          },
+          "parameters": {
+            "trackingCameras": [
+              0,
+              1,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9,
+              10,
+              11
             ],
-            "origin": {
-              "parameters": {
-                "sphereThetaStart": 0.0,
-                "sphereThetaLength": 180.0,
-                "spherePhiStart": 0.0,
-                "spherePhiLength": 360.0,
-                "sphereSamples": 24
+            "modelSymmetries": [
+              {
+                "type": "rotational",
+                "point": {
+                  "x": 0.0,
+                  "y": 0.0,
+                  "z": 0.0
+                },
+                "direction": {
+                  "x": 0.0,
+                  "y": 0.0,
+                  "z": 1.0
+                },
+                "order": 2
               }
-            },
-            "destination": {
-              "parameters": {
-                "modelURI": "project-dir:UVMappedStopfen_m.obj"
-              }
+            ],
+            "autoInit": {
+              "maxImageSize": 620,
+              "maxScaleRatio": 0.0,
+              "scaleLevels": 1,
+              "threshold": 0.8,
+              "cacheResults": false
             }
           }
-        ]
-      },
-      "modelSymmetries": [
-        {
-          "type": "rotational",
-          "point": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 0.0
-          },
-          "direction": {
-            "x": 0.0,
-            "y": 0.0,
-            "z": 1.0
-          },
-          "order": 2
         }
       ],
+      "synchronous": true,
+      "numberOfCameras": 12,
       "metric": "m",
       "keyFrameDistance": 50,
       "laplaceThreshold": 1.0,
@@ -82,13 +96,6 @@
       "lineGradientThreshold": 30,
       "minNumOfCorrespondences": 50,
       "perCameraPreRefinement": true,
-      "autoInit": {
-        "maxImageSize": 620,
-        "maxScaleRatio": 0.0,
-        "scaleLevels": 1,
-        "threshold": 0.8,
-        "cacheResults": false
-      },
       "minInitQuality": 0.6,
       "minTrackingQuality": 0.6,
       "showLineModel": true

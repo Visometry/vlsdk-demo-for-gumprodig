@@ -4,10 +4,10 @@
 
 #include <opencv2/core.hpp>
 
-namespace Helpers
+namespace ImageHelpers
 {
 Image toVLImageGrey(const cv::Mat& imageRGBA);
 
 cv::Mat toCVMat(const Image& vlImage);
 
-} // namespace Helpers
+} // namespace ImageHelpers

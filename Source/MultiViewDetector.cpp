@@ -2,7 +2,6 @@
 
 #include <Helpers/ImageHelpers.h>
 
-#include <nlohmann/json.hpp>
 #include <vlSDK.h>
 
 using namespace nlohmann;
@@ -29,6 +28,15 @@ std::string getResetHardCommand(const std::string& trackerName)
     json cmd;
     cmd["nodeName"] = trackerName;
     cmd["content"]["name"] = "resetHard";
+    return cmd.dump();
+}
+
+std::string setAttributeCommand(const std::string& attributeName, const std::string& value)
+{
+    json cmd;
+    cmd["name"] = "setAttribute";
+    cmd["param"]["att"] = attributeName;
+    cmd["param"]["val"] = value;
     return cmd.dump();
 }
 
@@ -93,7 +101,6 @@ Worker
     }
     return worker;
 }
-
 } // namespace
 
 MultiViewDetector::MultiViewDetector(
@@ -111,19 +118,36 @@ MultiViewDetector::MultiViewDetector(
     auto configJson = json::parse(resultPtr.get());
 
     _trackerName = configJson["tracker"]["name"].get<std::string>();
+    _anchorName = configJson["tracker"]["parameters"]["anchors"][0]["name"].get<std::string>();
     _inputName = configJson["input"]["useImageSource"].get<std::string>();
-    _cameraCount = configJson["tracker"]["parameters"]["trackingCameras"].size();
+    _cameraCount =
+        configJson["tracker"]["parameters"]["anchors"][0]["parameters"]["trackingCameras"].size();
 }
 
-Extrinsic MultiViewDetector::runDetection(const Frame& frame)
+void MultiViewDetector::enableTextureMapping(
+    const bool enabled,
+    std::optional<nlohmann::json> config)
+{
+    std::string enabledString = enabled ? "true" : "false";
+    execute(_worker, setAttributeCommand("textureMappingEnabled", enabledString));
+    _textureMappingEnabled = enabled;
+
+    if (config.has_value())
+    {
+        execute(_worker, setAttributeCommand("textureMappingConfig", config.value().dump()));
+    }
+}
+
+ExtrinsicDataHelpers::Extrinsic MultiViewDetector::runDetection(const Frame& frame)
 {
     // Without reset, the tracker tries to find the object based on the pose in the previous
     // frame
     resetTracker();
     injectFrame(frame);
     vlWorker_RunOnceSync(_worker.get());
-    return Extrinsic(
-        vlWorker_GetNodeExtrinsicDataSync(_worker.get(), _trackerName.c_str(), "extrinsic"));
+    SimilarityTransform worldFromAnchorTransform(
+        vlWorker_GetWorldFromAnchorTransform(_worker.get(), _anchorName.c_str()));
+    return ExtrinsicDataHelpers::toExtrinsic(worldFromAnchorTransform.get());
 }
 
 // Images of the detected model edges on a black background, one for each camera perspective
@@ -134,9 +158,20 @@ Frame MultiViewDetector::getLineModelImages() const
     {
         auto key = "imageLineModel_" + std::to_string(camIdx);
         Image visImage(vlWorker_GetNodeImageSync(_worker.get(), _trackerName.c_str(), key.c_str()));
-        images.push_back(Helpers::toCVMat(visImage));
+        images.push_back(ImageHelpers::toCVMat(visImage));
     }
     return images;
+}
+
+cv::Mat MultiViewDetector::getTextureImage() const
+{
+    if (!_textureMappingEnabled)
+    {
+        throw std::runtime_error("Cannot run getTextureImage() with texture mapping disabled.");
+    }
+    Image visImage(vlWorker_GetNodeImageSync(
+        _worker.get(), _trackerName.c_str(), ("mappedTexture" + _anchorName).c_str()));
+    return ImageHelpers::toCVMat(visImage);
 }
 
 void MultiViewDetector::resetTracker()
@@ -156,7 +191,7 @@ void MultiViewDetector::injectFrame(const Frame& frame)
         const auto key = "injectImage_" + std::to_string(camIdx);
         vlWorker_SetNodeImageSync(
             _worker.get(),
-            Helpers::toVLImageGrey(frame[camIdx]).get(),
+            ImageHelpers::toVLImageGrey(frame[camIdx]).get(),
             _inputName.c_str(),
             key.c_str());
     }
