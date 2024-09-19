@@ -1,3 +1,4 @@
+#include <Helpers/DataProcessingHelpers.h>
 #include <Helpers/ImageHelpers.h>
 #include <MultiViewDetector.h>
 #include <Visualization/ResultVisualization.h>
@@ -16,6 +17,7 @@ namespace
 constexpr int frameCount = 2;
 constexpr auto visualizeResults = true;
 constexpr auto extractTexture = true;
+constexpr auto useExternalTracking = true;
 
 using Frame = std::vector<cv::Mat>;
 
@@ -56,31 +58,46 @@ struct TextureMappingConfig
     }
 };
 
-std::string composeImagePath(const std::string imageDir, const size_t frameIdx)
+std::string composeImageName(const size_t frameIdx)
 {
-    return imageDir + "/multiViewImage_" + std::to_string(frameIdx) + ".tif";
+    return "multiViewImage_" + std::to_string(frameIdx);
 }
 
-std::string composeTexturePath(const std::string imageDir, const size_t frameIdx)
+std::string composeImagePath(const std::string& imageDir, const size_t frameIdx)
 {
-    return imageDir + "/extracted_textures/texture_from_multiViewImage_" +
-           std::to_string(frameIdx) + ".png";
+    return imageDir + "/" + composeImageName(frameIdx) + ".tif";
 }
 
-Frame loadFrame(const std::string imageDir, const size_t frameIdx)
+std::string composeTexturePath(const std::string& imageDir, const size_t frameIdx)
 {
-    Frame images;
-    if (!cv::imreadmulti(composeImagePath(imageDir, frameIdx), images))
+    return imageDir + "/extracted_textures/texture_from_" + composeImageName(frameIdx) + ".png";
+}
+
+Frame getNextFrame(const std::string& imageDir, const size_t frameIdx)
+{
+    return DataProcessingHelpers::loadFrame(composeImagePath(imageDir, frameIdx));
+}
+
+void writeTextureImage(const cv::Mat& cvImage, const std::string& imageDir, const size_t& frameIdx)
+{
+    std::string texturePath = composeTexturePath(imageDir, frameIdx);
+    DataProcessingHelpers::writeImage(cvImage, texturePath);
+}
+
+// Provided just for the demo, use your tracking algorithm instead.
+ExtrinsicDataHelpers::Extrinsic getTrackingResult(
+    const std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic>& extrinsics,
+    const size_t& frameIdx)
+{
+    const auto imgFileName = composeImageName(frameIdx);
+
+    if (extrinsics.find(imgFileName) == extrinsics.end())
     {
-        throw std::runtime_error("Unable to load multipage image");
+        std::cout << "No extrinsic found for image '" << imgFileName << "'" << std::endl;
+        return ExtrinsicDataHelpers::Extrinsic({{0, 0, 0}, {0, 0, 0, 1}, false});
     }
-    return images;
-}
 
-void writeImage(const cv::Mat& cvImage, const std::string& path)
-{
-    std::filesystem::create_directories(std::filesystem::path(path).parent_path());
-    cv::imwrite(path, cvImage);
+    return extrinsics.at(imgFileName);
 }
 } // namespace
 
@@ -112,29 +129,47 @@ int main(int argc, char* argv[])
         std::cout << "Creating detector...\n\n";
         MultiViewDetector detector(licenseFilepath, trackingConfigFilepath);
 
-        if (extractTexture)
+        detector.enableTextureMapping(
+            extractTexture, TextureMappingConfig().toJson()); // config is optional
+
+        std::unordered_map<std::string, ExtrinsicDataHelpers::Extrinsic> extrinsics;
+        if (useExternalTracking)
         {
-            detector.enableTextureMapping(
-                true, TextureMappingConfig().toJson()); // config is optional
+            detector.disablePoseEstimation(useExternalTracking);
+            // extrinsics are loaded from the file to use the saved results as an example;
+            // loading tracking results is not needed if you use a real external tracking
+            // algorithm
+            extrinsics =
+                DataProcessingHelpers::loadTrackingResults(imageDir + "/trackingResults.json");
         }
 
         for (size_t frameIdx = 0; frameIdx < frameCount; frameIdx++)
         {
             std::cout << "Loading Frame " << frameIdx << "...\n";
-            const auto frame = loadFrame(imageDir, frameIdx);
+            const auto frame = getNextFrame(imageDir, frameIdx);
 
-            std::cout << "Detecting...\n";
-            const auto extrinsic = detector.runDetection(frame);
+            ExtrinsicDataHelpers::Extrinsic extrinsic;
+            if (!useExternalTracking)
+            {
+                std::cout << "Detecting...\n";
+                extrinsic = detector.runDetection(frame);
+            }
+            else
+            {
+                std::cout << "Running with external tracking...\n";
+                extrinsic = getTrackingResult(extrinsics, frameIdx);
+                detector.runWithExternalTracking(frame, extrinsic);
+            }
 
             std::cout << "World from model transform:\n" << extrinsic << "\n";
 
             if (extractTexture)
             {
                 const auto& textureImage = detector.getTextureImage();
-                std::string texturePath = composeTexturePath(imageDir, frameIdx);
-                writeImage(textureImage, texturePath);
+                writeTextureImage(textureImage, imageDir, frameIdx);
 
-                std::cout << "Saved the extracted texture in " << texturePath << "\n\n";
+                std::cout << "Saved the extracted texture in "
+                          << composeTexturePath(imageDir, frameIdx) << "\n\n";
 
                 if (visualizeResults)
                 {

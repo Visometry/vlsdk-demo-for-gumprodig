@@ -40,6 +40,20 @@ std::string setAttributeCommand(const std::string& attributeName, const std::str
     return cmd.dump();
 }
 
+std::string setInitPoseCommand(const ExtrinsicDataHelpers::Extrinsic& extrinsic)
+{
+    json setInitPoseCommand;
+    setInitPoseCommand["name"] = "setInitPose";
+    setInitPoseCommand["param"]["t"][0] = extrinsic.t.at(0);
+    setInitPoseCommand["param"]["t"][1] = extrinsic.t.at(1);
+    setInitPoseCommand["param"]["t"][2] = extrinsic.t.at(2);
+    setInitPoseCommand["param"]["r"][0] = extrinsic.q.at(0);
+    setInitPoseCommand["param"]["r"][1] = extrinsic.q.at(1);
+    setInitPoseCommand["param"]["r"][2] = extrinsic.q.at(2);
+    setInitPoseCommand["param"]["r"][3] = extrinsic.q.at(3);
+    return setInitPoseCommand.dump();
+}
+
 std::string execute(const Worker& worker, const std::string& cmd)
 {
     using StringPair = std::pair<std::string, std::string>;
@@ -138,6 +152,13 @@ void MultiViewDetector::enableTextureMapping(
     }
 }
 
+void MultiViewDetector::disablePoseEstimation(const bool disableEstimation)
+{
+    execute(
+        _worker,
+        setAttributeCommand("disablePoseEstimation", disableEstimation ? "true" : "false"));
+}
+
 ExtrinsicDataHelpers::Extrinsic MultiViewDetector::runDetection(const Frame& frame)
 {
     // Without reset, the tracker tries to find the object based on the pose in the previous
@@ -145,9 +166,17 @@ ExtrinsicDataHelpers::Extrinsic MultiViewDetector::runDetection(const Frame& fra
     resetTracker();
     injectFrame(frame);
     vlWorker_RunOnceSync(_worker.get());
-    SimilarityTransform worldFromAnchorTransform(
-        vlWorker_GetWorldFromAnchorTransform(_worker.get(), _anchorName.c_str()));
-    return ExtrinsicDataHelpers::toExtrinsic(worldFromAnchorTransform.get());
+    return getExtrinsic();
+}
+
+void MultiViewDetector::runWithExternalTracking(
+    const Frame& frame,
+    const ExtrinsicDataHelpers::Extrinsic& extrinsic)
+{
+    resetTracker();
+    injectFrame(frame);
+    injectExtrinsic(extrinsic);
+    vlWorker_RunOnceSync(_worker.get());
 }
 
 // Images of the detected model edges on a black background, one for each camera perspective
@@ -174,6 +203,13 @@ cv::Mat MultiViewDetector::getTextureImage() const
     return ImageHelpers::toCVMat(visImage);
 }
 
+ExtrinsicDataHelpers::Extrinsic MultiViewDetector::getExtrinsic() const
+{
+    SimilarityTransform worldFromAnchorTransform(
+        vlWorker_GetWorldFromAnchorTransform(_worker.get(), _anchorName.c_str()));
+    return ExtrinsicDataHelpers::toExtrinsic(worldFromAnchorTransform.get());
+}
+
 void MultiViewDetector::resetTracker()
 {
     execute(_worker, getResetHardCommand(_trackerName));
@@ -195,4 +231,9 @@ void MultiViewDetector::injectFrame(const Frame& frame)
             _inputName.c_str(),
             key.c_str());
     }
+}
+
+void MultiViewDetector::injectExtrinsic(const ExtrinsicDataHelpers::Extrinsic& extrinsic)
+{
+    execute(_worker, setInitPoseCommand(extrinsic));
 }

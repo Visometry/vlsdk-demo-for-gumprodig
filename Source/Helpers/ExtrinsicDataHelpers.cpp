@@ -31,6 +31,20 @@ Extrinsic
     return result;
 }
 
+Extrinsic ExtrinsicDataHelpers::toExtrinsic(const nlohmann::json& extrinsicJson)
+{
+    if (extrinsicJson.is_null())
+    {
+        throw std::runtime_error("json extrinsic object empty");
+    }
+
+    Extrinsic result;
+    result.t = extrinsicJson.at("t").get<std::array<float, 3>>();
+    result.q = extrinsicJson.at("r").get<std::array<float, 4>>();
+    result.valid = extrinsicJson.contains("valid") ? (bool)extrinsicJson.at("valid") : true;
+    return result;
+}
+
 std::string ExtrinsicDataHelpers::to_string(const ExtrinsicDataHelpers::Extrinsic& ext)
 {
     std::string descr = "{\n";
